@@ -1,142 +1,142 @@
 clear;
 clc;
-%-Initial conditions-------------------------------------------------------------------------------------------------------------------------------------%
-M = [0 6 7 0 0 0 0 ; 0 0 0 0 0 6 0 ; 0 0 0 0 5 4 0 ; 0 0 0 0 0 0 4 ;  0 0 0 0 0 0 7 ;  0 0 0 2 0 0 3 ;  0 0 0 0 0 0 0 ];  %%Matrix representing capacities in the network.
 
-s = 1; t=7; %%Enter Source and Sink in the context of their position in C.
+%%----INPUTS----%%
 
-R=M; %Initialise residual graph as M.
+matrix = [0 6 7 0 0 0 0 ; 0 0 0 0 0 6 0 ; 0 0 0 0 5 4 0 ; 0 0 0 0 0 0 4 ;  0 0 0 0 0 0 7 ;  0 0 0 2 0 0 3 ;  0 0 0 0 0 0 0 ];  % INPUT matrix representing network flow capacities. 
 
-n=size(M,1); %Store size of C.
+source = 1; sink=7; % INPUT source and sink in context of position of C.
+
+%%--------------%%
+
+%% Initialisation before looping.
+residual=matrix;
+
+n=size(matrix,1); % Store size of matrix.
+
+flow_total=0; % Initalise store of flows in each iteration.
  
-flow_total=0; %Initialise store of flows in each iteration.
- 
-iter=1; %Initialise an iteration count as 1.
-iter_max = n^5; %Set maximum number of iterations to be run.
+iter=1; % Initialise an iteration count as 1.
+iter_max = sum(matrix(source,:)); % Set maximum number of iterations to the net outward flow capacity of the source.
 
-found = false; %Initialise found flag to false.
+found = false; % Initialise found flag to false.
 
-while iter<iter_max %Perform iterations a capped number of times.
+while iter<iter_max % Complete method within a while loop with capped iterations. 
 
-%-Depth-First Path Search-----------------------------------------------------------------------------------------------------------------------------%
+%% Perform Depth-First Path Search
 
-Q=[s]; % Initialise stack set.
-P=[]; %Initialise working path
-U=[]; %Initalise visited set
+stack=source; % Initialise stack set.
+path=[]; % Initialise working path.
+visited=[]; % Initalise visited set.
+visiting=stack(1); % Initialise first vertex to be visited.
 
-v=Q(1); %initialise first vertex to be visited outside the loop for while condition on the vertex being visited.
+while visiting~=sink % While loop to terminate when feasible path is found or stack is empty.
 
-while v~=t %Only run loop while sink has not been found. 
+visiting=stack(1); % Visit the first element of the stack.
+stack(1)=[]; % Remove the chosen vertex from the stack.
+stack_start_n=length(stack); % Record starting length of the stack.
 
-v=Q(1); %Set the vertex to be visited to the first element of the stack. 
-Q(1)=[]; %Remove this vertex from the stack.
-Q_start_n=length(Q); %Record the size of the stack at this stage. 
-
-U=[U v]; %Add the visiting vertex to the end of the visited set.
-P=[P v]; %Add the visiting vertex to the end of the path set.
+visited=[visited visiting]; % Add current vertex to visited set.
+path=[path visiting]; % Add current vertex to the path.
 
 for i=1:n
-     if R(v,i) > 0 && ~ismember(i, U) %Check for unvisited neighbours with positive residual capacity. 
-        Q=[i Q]; %Add these to the stack.
+     if residual(visiting,i) > 0 && ~ismember(i, visited) % Identify unvisited neighbours of current vertex with positive residual capacity.
+        stack=[i stack]; % Add identified feasible neighbours to the stack.
      end 
 end
 
-if length(Q)==Q_start_n && length(Q)~=0 && v~=t %Identify if the length of the stack did not change, but the stopping conditions are not met, so backtracking is required. 
-    P_n=length(P); %Store the size of P.
-    P(P_n)=[]; %Remove the last entry of P. 
-end %if
+if length(stack)==stack_start_n && ~isempty(stack) && visiting~=sink % Identify conditions for backtracking in DFS.
+    path(length(path))=[]; % Remove last entry of the working path.
+end 
 
-if length(Q)==0 && v~=t %Test stopping condition of Ford-Fulkerson method. 
-    found= true; %Set found flag to true for breaking primary loop. 
-    %fprintf("No augmenting path found.") %Optional print of reason for searching termination. 
+if length(stack)==0 && visiting~=sink % Test stopping condition for F-F method. 
+    found= true; % If condition met, set found flag true. 
     break
 end 
 
 end 
 
-%-Perform iteration of the Ford-Fulkerson Method with identified path---------------------------------------------------------------------------------%
+%% Perform iteration of the Ford-Fulkerson Method with identified path.
 
-n_P=length(P); %Record the length of the path.
+path_n=length(path); % Record the length of the path.
 
-if found %Test for true found flag. 
-   break %Break if stopping conditions were met.
+if found % Break F-F method if stopping condition was met in path searching above. 
+   break
 end
 
-%Store flow capacities of edges in P with a for loop.
-for z=1:n_P-1  
-flow_cap(z)=R(P(z),P(z+1));
+% Store flow capacities of edges in path with a for loop.
+for z=1:path_n-1  
+flow_cap(z)=residual(path(z),path(z+1));
 end
 
-flow_it=min(flow_cap); %Identify and record the minimum flow capacity in the path.
-flow_total=flow_total+flow_it; %Update the total capacity found.
+flow_it=min(flow_cap); % Identify and record the minimum flow capacity in the path.
+flow_total=flow_total+flow_it; % Update the total capacity found.
 
 % Update the residual graph.
-for z=1:n_P-1
-R(P(z),P(z+1))=R(P(z),P(z+1))-flow_it; % Subtract flow_it from each flow capactity in the path.
-R(P(z+1),P(z))=R(P(z+1),P(z))+flow_it; % Add flow_it to each reverse flow capacity in the path.
+for z=1:path_n-1
+residual(path(z),path(z+1))=residual(path(z),path(z+1))-flow_it; % Subtract flow_it from each flow capactity in the path.
+residual(path(z+1),path(z))=residual(path(z+1),path(z))+flow_it; % Add flow_it to each reverse flow capacity in the path.
 end
-R
+
 iter=iter+1; % Increase count of iterations by one.
 
 end % End primary while loop.
 
-%% Present results
+%% Present results for maximum flow.
  
 if iter==iter_max % Check if method was terminated with no result.
-fprintf('The decided maximum number of iterations was met before the Ford-Fulkerson method reached final result for maximum flow.') % Print report of findings.
+fprintf('The decided maximum number of iterations was met before the Ford-Fulkerson method reached final result for maximum flow.')
  
 else % Otherwise, a solution was found.
 fprintf('The maximum flow through this network is %d' , flow_total')
 
 end
 
-%%% Calculate minimum cut
+%%% Calculate minimum cut with BFS.
 
-%% Conditions for BFS to find set S
-S(1)=s; %set source vertex in S 
-queue(1)=s; %initialise queue with just source
+S(1)=source; % Store source vertex in S. 
+queue(1)=source; %initialise queue with only the source.
 
-%% Perform BFS to identify and store S
-while ~isempty(queue) % Iterate until queue is empty.
+while ~isempty(queue) % Iterate BFS to find set S until queue is empty.
 
 vis_it=queue(1); % Visit first in queue.
-queue(queue==vis_it)=[]; % update queue to remove vertex being visited
+queue(queue==vis_it)=[]; % Update queue to remove vertex being visited.
 
 for i=1:n
 
-if R(vis_it,i)>0 && ~ismember(i,S) % test is neighbour is reachable and not listed in S
-    S=[S i]; % update list of reachable vertices from S
-    queue=[queue i];
+if residual(vis_it,i)>0 && ~ismember(i,S) % Test if each neighbour of current vertex is reachable and not listed in S.
+    S=[S i]; % Update list of reachable vertices from S where applicable. 
+    queue=[queue i]; % Add new reachable vertices to the queue. 
+end 
+end 
+end 
 
-end %if
+all_vertices = 1:n; % Store set of all vertices in the matrix.
+T = all_vertices(~ismember(all_vertices, S)); % Store the set of all vertices in the matrix which are not in S.
 
-end %for
-
-end %while
-
-%% Identify T as any vertex not in S
-all_vertices = 1:n; % list all vertices
-test_S = ~ismember(all_vertices, S);  % test if each vertex is in S
-T = all_vertices(test_S); %list vertices not in S
-
-%% Identify cut-set as edges between S and T with positive forward value in initial capacity graph
-cut_edges=[];
-for u=S
-    for v=T
-    if M(u,v)>0
-        cut_edges= [cut_edges; u v];
-    end %if
-    end %for
-end %for
-%cut_edges
+cut_set=[]; % Initalise cut set as empty.
+for visiting_S=S 
+    for visiting_T=T
+    if matrix(visiting_S,visiting_T)>0 % Test each combination of vertices in S and T for positive capacity in matrix.
+        cut_set= [cut_set; visiting_S visiting_T]; %Add those identified to cut-set.
+    end 
+    end 
+end 
 
 %% Present Min-cut set
-m=size(cut_edges,1);
-   fprintf('The minimum cut set for this network is: ');
-    for i = 1:m
-        if i == 1
-            fprintf('(%d,%d)', cut_edges(i,1), cut_edges(i,2));
-        else
-            fprintf(', (%d,%d)', cut_edges(i,1), cut_edges(i,2));
-        end
-    end
+cut_set_n=size(cut_set,1);
+
+fprintf('The minimum cut set for this network is: ');
+if cut_set_n==1
+    fprintf('(%d,%d).', cut_set(i,1), cut_set(i,2)); 
+else
+
+for i = 1:cut_set_n
+        if i == cut_set_n
+           fprintf('(%d,%d).', cut_set(i,1), cut_set(i,2)); 
+           else
+           fprintf('(%d,%d),', cut_set(i,1), cut_set(i,2));
+        end 
+        
+end %Output split into different cases of cut_set position for correct grammer. 
+end
