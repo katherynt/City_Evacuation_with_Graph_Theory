@@ -1,0 +1,57 @@
+clear;
+clc;
+
+%%----INPUTS----%%
+
+matrix = [0 5 4 0 ; 0 0 3 2 ; 0 0 0 0 ; 0 0 0 0];  % INPUT matrix representing graph weightings. 
+
+source = 1; sink=4; % INPUT source and sink in context of position of C.
+
+%%--------------%%
+
+%% Initialisation before looping.
+
+n=size(matrix,1); % Store size of matrix.
+
+%% Perform Depth-First Path Search
+
+stack=source; % Initialise stack set.
+path=[]; % Initialise working path.
+visited=[]; % Initalise visited set.
+
+visiting=stack(1); % Initialise first vertex to be visited.
+
+while visiting~=sink % While loop to terminate when feasible path is found or stack is empty.
+
+visiting=stack(1); % Visit the first element of the stack.
+stack(1)=[]; % Remove the chosen vertex from the stack.n
+visited=[visited visiting]; % Add current vertex to visited set.
+path=[path visiting]; % Add current vertex to the path.
+
+stack_start_n=length(stack); % Record starting length of the stack.
+
+for i=1:n
+     if matrix(visiting,i) > 0 && ~ismember(i, visited) % Identify unvisited neighbours of current vertex with positive matrix capacity.
+        stack=[i stack]; % Add identified feasible neighbours to the stack.
+     end 
+end
+
+if length(stack)==stack_start_n && ~isempty(stack) && visiting~=sink % Identify conditions for backtracking in DFS.
+    path(length(path))=[]; % Remove last entry of the working path.
+end 
+
+end
+
+%%Output result
+path_n=length(path);
+
+fprintf('A s-t path in this graph calculated with depth-first searching is: ');
+    for i = 1:path_n
+        if i == path_n
+           fprintf('%d.', path(i)); 
+           else
+           fprintf('%d,', path(i));
+        end 
+        
+end %Output split into different cases of set position for correct grammer. 
+
