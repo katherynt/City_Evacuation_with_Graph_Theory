@@ -1,0 +1,158 @@
+clear;
+clc;
+
+%%----INPUTS----%%
+
+capacity = [
+    0 0 0 0 10 0 ;
+    9 0 2 5 0 0 ;
+    6 2 0 3 0 0 ;
+    0 0 0 0 0 10 ;
+    0 0 0 0 0 0 ;
+    0 0 0 0 0 0
+]; % INPUT matrix representing network flow capacities. 
+
+source=[1 2 3 4]; % INPUT source (evacuation zone) in context of position in matrix.
+
+%%--------------%%
+
+%%Initialisation for Augmentation
+all_vertices = 1:size(capacity,1); % Store set of all vertices in the matrix.
+sink=all_vertices(~ismember(all_vertices, source)); % Store the set of all vertices in the matrix which are not in S.
+
+n_capacity=size(capacity,1); %Store number of vertices in original network.
+
+%% Matrix Augmentation
+
+augmented=zeros(n_capacity+2); %Initalise the augmented matrix with row/column for super-source and super-sink.
+
+augmented(2:n_capacity+1,2:n_capacity+1)=capacity; %Place original network inside augmented matrix.
+
+augmented(1,source+1)=sum(capacity(source,:),2)'; %Connect super-source to each source vertex with total outward flow capacity. 
+
+augmented(sink+1,n_capacity+2)=sum(capacity(:,sink),1)'; %Connect super-sink to each sink vertex with total inward flow capacity. 
+
+source=1; %Store index of the super-source.
+sink=size(augmented,1); %Store index of the super-sink.
+
+%% Initialisation for Ford-Fulkerson method.
+n=size(augmented,1); %Store number of vertices in augmented network
+
+residual=augmented; %Initalise residual matrix as augmented capacity matrix. 
+
+flow_total=0; % Initalise total flow value.
+
+while true %Complete Ford-Fulkerson method until no augmenting path exists. Termination is guarenteed by Max-Flow Min-Cut theorem.
+
+%% Perform Depth-First Path Search
+
+visited=false(1,n); %Initialise visited set.
+parent=zeros(1,n); %Initialise parent set.
+
+stack=source; % Initialise stack set.
+visited(source)=true; % Mark super-source as visited. 
+
+found_path=false; %Initalise found_path logic as false.
+path=[]; % Initalise path as empty.
+
+while ~isempty(stack) %Update stack until empty         
+
+    visiting=stack(1); % Visit the first element of the stack.
+    stack(1)=[]; % Remove the chosen vertex from the stack.
+
+    if visiting==sink % If we've reached the sink, stop searching
+        found_path=true;
+        break
+    end
+
+    for i=1:n
+        if residual(visiting,i)>0 && ~visited(i) %Check for residual capacity to use each edge in path.
+            visited(i)=true;
+            parent(i)=visiting;
+
+            stack=[i stack]; % Add neighbour to front of stack.
+
+        end
+    end
+end
+
+% Reconstruct the path using parent pointers (only if path found).
+if found_path
+    v=sink;
+    path=sink;
+
+    while v~=source
+        v=parent(v);
+        path=[v path];
+    end
+end
+
+if ~found_path
+    break   % No augmenting path end Ford-Fulkerson method
+end
+
+%% Perform iteration of the Ford-Fulkerson Method with identified path.
+
+path_n=length(path); % Record the length of the path.
+
+% Extract flow capacities of edges in path.
+flow_cap=[];
+for i=1:path_n-1  
+flow_cap(i)=residual(path(i),path(i+1));
+end
+
+flow_it=min(flow_cap); % Identify and record the minimum flow capacity in the path.
+flow_total=flow_total+flow_it; % Update the total flow found.
+
+% Update the residual network.
+for i=1:path_n-1
+residual(path(i),path(i+1))=residual(path(i),path(i+1))-flow_it; % Subtract flow_it from each flow capactity in the path.
+residual(path(i+1),path(i))=residual(path(i+1),path(i))+flow_it; % Add flow_it to each reverse flow capacity in the path.
+end
+
+
+end % End primary while loop.
+
+%% Present results for maximum flow.
+fprintf('The maximum flow through this network is %d.', flow_total)
+
+%% Perform BFS for minimum cut
+
+S=source;
+queue=source;
+
+while ~isempty(queue) % Iterate BFS to find set S until queue is empty.
+
+visiting=queue(1); % Visit first in queue.
+queue(1)=[]; % Update queue to remove vertex being visited.
+
+for i = 1:n
+
+if residual(visiting,i) > 0 && ~ismember(i,S) % Test if each neighbour of current vertex is reachable and not listed in S.
+S=[S i]; % Update list of reachable vertices from S where applicable. 
+queue=[queue i]; % Add new reachable vertices to the queue. 
+end
+
+end
+end
+
+S=setdiff(S, [source, sink]); % Remove artificial vertices from S.
+S=S-1;
+T = all_vertices(~ismember(all_vertices, S)); % Store the set of all vertices in the matrix which are not in S.
+
+%% Extract cut-set from minimum cut.
+
+cut_set=[]; % Initalise cut set as empty.
+
+for u=S
+
+    for v=T
+        if capacity(u,v)>0 % Test each combination of vertices in S and T for positive capacity.
+            cut_set=[cut_set; u v]; %Add those identified to cut-set.
+        end
+    end
+end
+
+%%Present results for minimum cut-set.
+cut_set = "(" + cut_set(:,1) + "," + cut_set(:,2) + ")"; %Convert the matrix containing cut-set to a string. 
+fprintf('The cut-set is E(S,T) = {%s}.\n', strjoin(cut_set, ', ')); 
