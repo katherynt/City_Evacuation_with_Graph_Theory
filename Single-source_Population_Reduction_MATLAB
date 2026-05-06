@@ -1,0 +1,12 @@
+%INPUT: script for calculation of the maximum flow in a standard network. 
+
+%%Evacuation time calculation
+
+%INPUT
+population=21000;
+
+%Time calculation
+time=population./flow_total;
+
+%Print results for minimum evacuation time
+fprintf('The population at the source can be evacuated to the sink in %d time periods following the calculated maximum flow model.' , time')
