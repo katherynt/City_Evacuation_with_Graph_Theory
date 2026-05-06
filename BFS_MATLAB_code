@@ -3,60 +3,55 @@ clc;
 
 %%----INPUTS----%%
 
-matrix = [0 3 0 0 0 0 0; 3 0 0 0 0 3 0 ; 7 0 0 0 0 2 0 ; 0 0 0 0 0 2 2; 0 0 1 0 0 0 2 ; 0 3 2 0 0 0 0 ; 0 0 0 2 5 3 0];  % INPUT matrix representing network flow capacities. 
+residual = [
+0	3	0	0	0	0	0;
+3	0	0	0	0	3	0;
+7	0	0	0	0	2	0;
+0	0	0	0	0	2	2;
+0	0	5	0	0	0	2;
+0	3	2	0	0	0	0;
+0	0	0	2	5	3	0];% INPUT capacity matrix of maximum flow residual network. 
 
-source = 1; sink=7; % INPUT source and sink in context of position of C.
+source = 1; sink=7; % INPUT source and sink indexed to position in matrix.
 
 %%--------------%%
 
-%% Initialisation before looping.
+%% Initialisation before searching.
 
-n=size(matrix,1); % Store size of matrix.
+n=size(residual,1); % Store size of matrix.
 
-%%% Calculate minimum cut with BFS.
+S(1)=source; %Initialise with source vertex in S. 
+queue(1)=source; %Initialise with source vertex in queue. 
 
-S(1)=source; % Store source vertex in S. 
-queue(1)=source; %initialise queue with only the source.
+%% Calculate minimum cut with BFS.
 
 while ~isempty(queue) % Iterate BFS to find set S until queue is empty.
 
-vis_it=queue(1); % Visit first in queue.
-queue(queue==vis_it)=[]; % Update queue to remove vertex being visited.
+visiting=queue(1); % Visit first in queue.
+queue(1)=[]; % Update queue to remove vertex being visited.
 
 for i=1:n
 
-if matrix(vis_it,i)>0 && ~ismember(i,S) % Test if each neighbour of current vertex is reachable and not listed in S.
-    S=[S i]; % Update list of reachable vertices from S where applicable. 
-    queue=[queue i]; % Add new reachable vertices to the queue. 
+if residual(visiting,i)>0 && ~ismember(i,S) % Test if each neighbour of current vertex is reachable and not listed in S.
+
+S=[S i]; % Update list of reachable vertices from S where applicable. 
+queue=[queue i]; % Add new reachable vertices to the queue. 
+
 end 
+
 end 
 end 
 
+%%Extract opposite set T.
 all_vertices = 1:n; % Store set of all vertices in the matrix.
 T = all_vertices(~ismember(all_vertices, S)); % Store the set of all vertices in the matrix which are not in S.
 
-%% Present two sets
+%% Present two sets.
 
-S_n=length(S);
-
-fprintf('The set of vertices which are reachable from the source is: ');
-
-for i = 1:S_n
-        if i == S_n
-           fprintf('%d.', S(i));
-        else
-           fprintf('%d,', S(i)); 
-        end         
-end %Output split into different cases of set position for correct grammer. 
-
-T_n=length(T);
-
-fprintf('The set of vertices which are reachable from the source is: ');
-
-for i = 1:T_n
-        if i == T_n
-           fprintf('%d.', T(i));
-        else
-           fprintf('%d,', T(i)); 
-        end         
-end %Output split into different cases of set position for correct grammer. 
+%Print result
+if size(T)>0
+    fprintf('A set of vertices which are reachable from the source is: S={%s}.\n', strjoin(string(S), ','));
+    fprintf('The set T is therefore: T={%s}.\n', strjoin(string(T), ','));
+else
+    fprintf('The inputted residual network does not represent a maximum flow state.\n');
+end
