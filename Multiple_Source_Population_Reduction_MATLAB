@@ -1,0 +1,160 @@
+clear;
+clc;
+
+%%----INPUTS----%%
+
+capacity = [
+    0 0 0 0 10 0 ;
+    9 0 2 5 0 0 ;
+    6 2 0 3 0 0 ;
+    0 0 0 0 0 10 ;
+    0 0 0 0 0 0 ;
+    0 0 0 0 0 0
+];
+
+source = [1 2 3 4];
+
+population = [48470 24307 47370 28442];
+
+%%--------------%%
+
+%%Initalisations before all looping
+
+n_capacity = size(capacity,1); %Original number of vertices.
+time = 0;  %Initialise total evacuation time. 
+
+all_vertices = 1:n_capacity; % Store set of all vertices in the matrix.
+sink = setdiff(all_vertices, source); % Store the set of all vertices in the matrix which are not in S.
+
+while ~isempty(source)
+
+%% Matrix Augmentation
+
+augmented=zeros(n_capacity+2); %Initalise the augmented matrix with row/column for super-source and super-sink.
+
+augmented(2:n_capacity+1,2:n_capacity+1)=capacity; %Place original network inside augmented matrix.
+
+augmented(1,source+1)=sum(capacity(source,:),2)'; %Connect super-source to each source vertex with total outward flow capacity. 
+
+augmented(sink+1,n_capacity+2)=sum(capacity(:,sink),1)'; %Connect super-sink to each sink vertex with total inward flow capacity. 
+
+n_augmented=size(augmented,1); %Store size of augmented network matrix. 
+
+super_source = 1; %Store index of the super-source.
+super_sink = n_augmented; %Store index of the super-sink.
+
+%% Initialisation for Ford-Fulkerson method.
+
+residual = augmented; %Initalise residual matrix as augmented capacity matrix. 
+flow = zeros(size(augmented)); %Set flow back to zero.
+
+while true %Ford-Fulkerson loop
+
+%% Perform Depth-First Path Search
+
+visited=false(1,n_augmented); %Initialise visited set.
+parent=zeros(1,n_augmented); %Initialise parent set.
+
+stack=super_source; % Initialise stack set.
+visited(super_source) = true; % Mark super-source as visited. 
+found=false; %Initalise found logic as false.
+
+while ~isempty(stack) %Update stack until empty       
+       
+visiting = stack(1); % Visit the first element of the stack.
+stack(1) = []; % Remove the chosen vertex from the stack.
+
+if visiting==super_sink % If we've reached the sink, stop searching
+   found=true;
+   break;
+end
+
+for i = 1:n_augmented
+    if residual(visiting,i) > 0 && ~visited(i)
+       visited(i) = true;
+       parent(i) = visiting;
+       stack = [i stack];
+       end
+    end
+end
+
+if ~found
+   break; %No augmenting path so end Ford-Fulkerson method.
+end
+
+%% Path reconstruction with parent function. 
+path=super_sink; %Add sink to path.
+v=super_sink; %Seach backwards from sink.
+
+while v~=super_source
+      v=parent(v);
+      path=[v path];
+end
+
+%% Path updates.
+
+path_n=length(path); % Record the length of the path.
+
+% Store flow capacities of edges in path with a for loop. 
+flow_cap = zeros(1, path_n-1);
+for z=1:path_n-1 
+    flow_cap(z)=residual(path(z),path(z+1)); 
+end
+
+flow_it=min(flow_cap); % Identify and record the minimum flow capacity in the path.
+
+
+for z=1:path_n-1 %Perform flow update on every edge in the path.
+    u=path(z); 
+    v=path(z+1);
+
+    residual(u,v)=residual(u,v)-flow_it; %Update forward residual path.
+    residual(v,u)=residual(v,u)+flow_it; %Update backward residual path.
+
+    flow(u,v)=flow(u,v)+flow_it; %Update forward flow path.
+    flow(v,u)=flow(v,u)-flow_it; %Update backward flow path.
+end
+
+end
+
+%% Population update
+
+flow_out=flow(1,:); %Extract flow column for super-source
+flow_out(1)=[]; %Remove super-source column. 
+flow_out(end)=[]; %Remove super-sink column.
+
+active=source(flow_out(source)>0); %Store which vertices have positive outward flow.
+
+if isempty(active)
+   error("No active flow from sources."); %Fail-safe only if no augmenting path in input network.
+end
+
+active_flow = zeros(1,length(active));
+active_pop = zeros(1,length(active));
+
+for i = 1:length(active)
+    idx = find(source==active(i)); %Find position in source set. 
+    active_flow(i)=flow_out(active(i)); %Find flow leaving the active vertex.
+    active_pop(i)=population(idx); %Store population value at active vertex.
+end
+
+it_time=min(active_pop ./ active_flow); % Time until first vertex population depleted.
+
+time=time + it_time; %Update total time. 
+
+%% Reduce populations
+pop_new=active_pop-it_time*active_flow; %Calculate new population at active vertices.
+pop_new(abs(pop_new) < 1e-10) = 0; %Round to zero.
+
+%% Update new populations in main sets.
+for i = 1:length(active)
+    idx=find(source==active(i));
+    population(idx)=pop_new(i);
+end
+
+%% Remove empty sources
+   remove=population<=0;
+   source(remove)=[];
+   population(remove) = [];
+end
+fprintf("Total evacuation time = %.4f time units\n", time);
